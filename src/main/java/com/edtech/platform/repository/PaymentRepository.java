@@ -5,6 +5,7 @@ import com.edtech.platform.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,18 +29,19 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT p FROM Payment p WHERE p.refundStatus = 'REQUESTED' ORDER BY p.refundRequestedAt ASC")
     List<Payment> findPendingRefunds();
 
-    /** Check if user has a successful unlimited student plan not yet expired (6 months) */
+    /**
+     * Check if a user has an active unlimited student plan.
+     * cutoffDate = LocalDateTime.now().minusDays(180) — passed from service to avoid HQL date arithmetic.
+     */
     @Query("""
-SELECT p FROM Payment p
-WHERE p.user = :user
-  AND p.type = 'STUDENT_UNLIMITED_PLAN'
-  AND p.status = 'SUCCESS'
-  AND p.createdAt >= :validAfter
-ORDER BY p.createdAt DESC
-""")
+        SELECT p FROM Payment p
+        WHERE p.user       = :user
+          AND p.type       = 'STUDENT_UNLIMITED_PLAN'
+          AND p.status     = 'SUCCESS'
+          AND p.createdAt >= :cutoffDate
+        ORDER BY p.createdAt DESC
+        """)
     List<Payment> findActiveUnlimitedPlan(
-            @Param("user") User user,
-            @Param("validAfter") LocalDateTime validAfter
-    );
-
+            @Param("user")       User user,
+            @Param("cutoffDate") LocalDateTime cutoffDate);
 }

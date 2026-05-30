@@ -103,17 +103,30 @@ public class PaymentService {
         try   { type = Payment.PaymentType.valueOf(req.getType().toUpperCase()); }
         catch (Exception e) { type = Payment.PaymentType.OTHER; }
 
+        // In dev mode (no real Razorpay key), mark as SUCCESS immediately
+        // so the flow can be tested end-to-end without a real payment gateway
+        Payment.PaymentStatus initialStatus = (razorpayKeyId == null
+                || razorpayKeyId.isBlank()
+                || razorpayKeyId.startsWith("rzp_test_placeholder"))
+                ? Payment.PaymentStatus.SUCCESS
+                : Payment.PaymentStatus.CREATED;
+
         paymentRepository.save(Payment.builder()
                 .user(user).razorpayOrderId(orderId)
                 .amount(req.getAmount()).type(type)
                 .referenceId(req.getReferenceId()).note(req.getNote())
-                .status(Payment.PaymentStatus.CREATED).build());
+                .status(initialStatus).build());
+
+        boolean devMode = (razorpayKeyId == null
+                || razorpayKeyId.isBlank()
+                || razorpayKeyId.startsWith("rzp_test_placeholder"));
 
         return PaymentDto.OrderResponse.builder()
                 .orderId(orderId).amount(req.getAmount())
                 .currency("INR").keyId(razorpayKeyId).type(req.getType())
                 .planDescription(getPlanDescription(type))
                 .refundPolicy(getRefundPolicyText(type))
+                .devMode(devMode)   // frontend skips Razorpay popup in dev mode
                 .build();
     }
 
@@ -198,8 +211,7 @@ public class PaymentService {
 
     public boolean hasActiveUnlimitedPlan(Long userId) {
         User user = getUser(userId);
-        LocalDateTime validAfter = LocalDateTime.now().minusDays(180);
-        return !paymentRepository.findActiveUnlimitedPlan(user ,validAfter).isEmpty();
+        return !paymentRepository.findActiveUnlimitedPlan(user, LocalDateTime.now().minusDays(180)).isEmpty();
     }
 
     // ── Razorpay refund API ────────────────────────────────────────────────────

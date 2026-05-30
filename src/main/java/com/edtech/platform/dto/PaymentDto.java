@@ -23,6 +23,7 @@ public class PaymentDto {
         private String     type;
         private String     planDescription;   // shown to user in UI
         private String     refundPolicy;      // shown to user before paying
+        private boolean    devMode;           // true = skip Razorpay popup, auto-succeed
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
